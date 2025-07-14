@@ -1,0 +1,31 @@
+#include <mpi.h> 
+#include <stdio.h> 
+#include <math.h> 
+int is_prime(int num) { 
+if (num < 2) return 0; 
+for (int i = 2; i <= sqrt(num); i++) 
+if (num % i == 0) return 0; 
+return 1; 
+} 
+int main(int argc, char *argv[]) { 
+int rank, size; 
+const int N = 16; 
+int data[N] = {5, 7, 8, 9, 11, 13, 15, 17, 4, 6, 19, 23, 28, 29, 31, 33}; 
+MPI_Init(&argc, &argv); 
+MPI_Comm_rank(MPI_COMM_WORLD, &rank); 
+MPI_Comm_size(MPI_COMM_WORLD, &size); 
+// Broadcast the entire array to all processes 
+MPI_Bcast(data, N, MPI_INT, 0, MPI_COMM_WORLD); 
+// Determine local portion to process 
+int local_sum = 0; 
+for (int i = rank; i < N; i += size) { 
+if (is_prime(data[i])) 
+local_sum += data[i]; 
+} 
+int global_sum = 0; 
+MPI_Reduce(&local_sum, &global_sum, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD); 
+if (rank == 0) 
+printf("Sum of prime numbers = %d\n", global_sum); 
+MPI_Finalize(); 
+return 0; 
+}

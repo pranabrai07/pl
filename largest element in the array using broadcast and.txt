@@ -1,0 +1,48 @@
+#include <mpi.h> 
+#include <stdio.h> 
+#include <stdlib.h> 
+ 
+int main(int argc, char *argv[]) { 
+    int rank, size; 
+    const int N = 16; 
+    int data[N]; 
+    int local_max = -1; 
+    int global_max; 
+ 
+    MPI_Init(&argc, &argv); 
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank); 
+    MPI_Comm_size(MPI_COMM_WORLD, &size); 
+ 
+    // Step 1: Initialize the array in root process 
+    if (rank == 0) { 
+        printf("Input array: "); 
+        for (int i = 0; i < N; i++) { 
+            data[i] = rand() % 100; 
+            printf("%d ", data[i]); 
+        } 
+        printf("\n"); 
+    } 
+ 
+    // Step 2: Broadcast the full array to all processes 
+    MPI_Bcast(data, N, MPI_INT, 0, MPI_COMM_WORLD); 
+ 
+    // Step 3: Each process works on a segment 
+    int chunk_size = N / size; 
+    int start = rank * chunk_size; 
+    int end = start + chunk_size; 
+ 
+    local_max = data[start]; 
+    for (int i = start + 1; i < end; i++) { 
+        if (data[i] > local_max) { 
+            local_max = data[i]; 
+        } 
+    } 
+// Step 4: Reduce all local maxima to find the global max 
+MPI_Reduce(&local_max, &global_max, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD); 
+// Step 5: Root process prints the result 
+if (rank == 0) { 
+printf("Largest element in array: %d\n", global_max); 
+} 
+MPI_Finalize(); 
+return 0; 
+} 

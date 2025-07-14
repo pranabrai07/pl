@@ -1,0 +1,42 @@
+#include <mpi.h> 
+#include <stdio.h> 
+#include <stdlib.h> 
+#include <time.h> 
+static inline double rand01(unsigned int *seed) 
+/* Fast re‑entrant RNG: returns uniform double in [0,1) */ 
+{ 
+} 
+return rand_r(seed) / (double)RAND_MAX; 
+int main(int argc, char *argv[]) 
+{ 
+MPI_Init(&argc, &argv); 
+int rank, size; 
+MPI_Comm_rank(MPI_COMM_WORLD, &rank);   // my rank 
+MPI_Comm_size(MPI_COMM_WORLD, &size);   // #processes 
+long long N_total = (argc > 1) ? atoll(argv[1]) : 1000000LL; 
+/* Optionally broadcast N_total from rank 0 so all ranks agree */ 
+MPI_Bcast(&N_total, 1, MPI_LONG_LONG, 0, MPI_COMM_WORLD); 
+/* Divide work: last rank gets the remainder */ 
+long long N_local = N_total / size; 
+if (rank == size - 1) N_local += N_total % size; 
+unsigned int seed = (unsigned int)time(NULL) ^ (rank * 0x9e3779b9U); 
+long long local_hits = 0; 
+    for (long long i = 0; i < N_local; ++i) { 
+        double x = rand01(&seed); 
+        double y = rand01(&seed); 
+        if (x * x + y * y <= 1.0) ++local_hits; 
+    } 
+ 
+    long long total_hits = 0; 
+    MPI_Reduce(&local_hits, &total_hits, 1, MPI_LONG_LONG, 
+               MPI_SUM, 0, MPI_COMM_WORLD); 
+ 
+    if (rank == 0) { 
+        double pi_est = 4.0 * (double)total_hits / (double)N_total; 
+        printf("π ≈ %.12f   (samples = %lld, processes = %d)\n", 
+               pi_est, N_total, size); 
+    } 
+ 
+    MPI_Finalize(); 
+    return 0; 
+} 

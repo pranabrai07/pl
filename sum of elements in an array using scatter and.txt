@@ -1,0 +1,60 @@
+#include <mpi.h> 
+#include <stdio.h> 
+ 
+#define N 16  // Total number of elements (should be divisible by number of processes) 
+ 
+int main(int argc, char *argv[]) { 
+    int rank, size; 
+    int data[N];         // Full array (used only by root) 
+    int local[N];        // Over-allocated to maximum possible size 
+ 
+    MPI_Init(&argc, &argv); 
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank); 
+    MPI_Comm_size(MPI_COMM_WORLD, &size); 
+ 
+    if (N % size != 0 && rank == 0) { 
+        printf("Error: Array size N = %d is not divisible by number of processes = %d\n", N, size); 
+        MPI_Abort(MPI_COMM_WORLD, 1); 
+    } 
+ 
+    int local_n = N / size; 
+ 
+    // Initialize array only on root process 
+    if (rank == 0) { 
+        for (int i = 0; i < N; i++) { 
+            data[i] = i + 1;  // Example: 1, 2, ..., N 
+        } 
+    } 
+ 
+    // Scatter the array to all processes 
+    MPI_Scatter( 
+        data,        // send buffer (root only) 
+        local_n,     // number of elements sent to each process 
+        MPI_INT,      
+        local,       // receive buffer (each process) 
+        local_n,     // number of elements to receive 
+        MPI_INT, 
+        0,           // root 
+        MPI_COMM_WORLD 
+    ); 
+    // Each process calculates the sum of its local part 
+    int local_sum = 0; 
+    for (int i = 0; i < local_n; i++) { 
+        local_sum += local[i]; 
+    } 
+    // Reduce all local sums to a single global sum at root 
+    int global_sum = 0; 
+    MPI_Reduce( 
+        &local_sum,     // send buffer 
+        &global_sum,    // receive buffer (only on root) 
+        1, 
+        MPI_INT, 
+        MPI_SUM, 
+        0, 
+        MPI_COMM_WORLD 
+    ); 
+    // Print the result at root 
+    if (rank == 0) { 
+        printf("Sum of array elements = %d\n", global_sum); 
+    } 
+    MPI_Finalize(); return 0; } 
