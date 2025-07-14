@@ -1,0 +1,40 @@
+#include<stdio.h>
+#include<mpi.h>
+
+int main(int argc, char **argv)
+{
+     MPI_Init(&argc, &argv);
+
+    int rank, size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    const int N=8;
+    int data[8]={2,4,5,6,7,8,12,15};
+    int key=12;
+
+    int chunk=N/size;
+    int subdata[chunk];
+
+    MPI_Scatter(data, chunk, MPI_INT, subdata, chunk, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&key, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    int local_found=0;
+    for(int i=0; i<chunk; i++)
+    {
+        if(subdata[i]==key)
+        {
+            printf("Key %d is found at %d by processor %d\n", key, rank*chunk+1, rank);
+            local_found=1;
+        }
+    }
+    
+    int found=0;
+    MPI_Reduce(&local_found, &found, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
+
+    if (rank == 0 && found == 0) 
+    printf("Key %d was not found in any process.\n", key); 
+
+    MPI_Finalize();
+    return 0;
+}
